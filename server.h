@@ -4,9 +4,6 @@
 #include <cstdarg>
 #include <string>
 #include <sstream>
-#ifdef HAVE_DUO
-#include <set>
-#endif
 #include "http_srv.h"
 
 class wxTextCtrl;
@@ -53,9 +50,6 @@ private:
    std::string _auth_pwd;
    bool _chunked;
    bool _keepalive;
-#ifdef HAVE_DUO
-   std::set<std::string> _duo_authenticated;
-#endif
    wxTextCtrl *_logctrl;
    static pthread_mutex_t _log_mutex;
 };
