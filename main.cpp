@@ -285,6 +285,11 @@ void MainDialog::OnStart(wxCommandEvent& event)
    _httpsrv.SetSSL(false);
    if (cert_file.length() > 0)
       _httpsrv.UseCertificate(cert_file, cert_file, pk_pass);
+   if (_ssl->IsChecked() && auth && !basic && ca_file.length() == 0)
+   {
+      ErrorMessage("CA file not specified");
+      return;
+   }
    if (_ssl->IsChecked() && !_httpsrv.SetSSL(true, true, BaseSock::TLS, ca_file))
    {
       wxString msg = "Error loading ";
