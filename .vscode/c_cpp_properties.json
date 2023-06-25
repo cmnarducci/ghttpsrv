@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/cygwin64/usr/x86_64-w64-mingw32/sys-root/mingw/include/wx-3.2",
+                "C:/cygwin64/usr/x86_64-w64-mingw32/sys-root/mingw/lib/wx/include/x86_64-w64-mingw32-msw-unicode-static-3.2"
+            ],
+            "defines": [
+                "UNICODE",
+                "HAVE_CONFIG_H",
+                "MINGW",
+                "_WIN32_WINNT=0x0600",
+                "__WXMSW__",
+                "_FILE_OFFSET_BITS=64"
+            ],
+            "compilerPath": "C:\\cygwin64\\bin\\x86_64-w64-mingw32-g++",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

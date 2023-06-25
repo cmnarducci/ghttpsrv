@@ -1,0 +1,50 @@
+.SUFFIXES: .cpp .h .o
+CXX = @CXX@
+STRIP = @STRIP@
+CXXFLAGS = @CXXFLAGS@ @SSL_CFLAGS@ @WX_CFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@ @SSL_LIBS@ @WX_LIBS@ @SOCKET_LIBS@
+DEFINES = @DEFS@ @CN_DEFS@
+PROGRAM = ghttpsrv
+OBJS = main.o tools.o wxhlp.o server.o base_sock.o srv_sock.o http_srv.o thread.o
+ifdef WINDIR
+OBJS += resources.o
+DEFINES += -DUNICODE
+endif
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S), Darwin)
+CXXFLAGS += -std=c++11
+endif
+WINDRES = @WX_RESCOMP@
+
+%.o: common/%.cpp
+	$(CXX) $(DEFINES) $(CXXFLAGS) -I. -o $@ -c $<
+
+%.o: %.cpp
+	$(CXX) $(DEFINES) $(CXXFLAGS) -Icommon -o $@ -c $<
+
+%.o: %.rc
+	$(WINDRES) -o $@ -i $<
+
+all: $(PROGRAM)
+
+main.o: main.cpp main.h config.h server.h common/wxhlp.h common/srv_sock.h common/base_sock.h common/http_srv.h common/thread.h
+server.o: server.cpp server.h config.h common/http_srv.h common/thread.h common/srv_sock.h common/base_sock.h
+
+tools.o: common/tools.cpp common/tools.h
+wxhlp.o: common/wxhlp.cpp common/wxhlp.h
+base_sock.o: common/base_sock.cpp config.h common/base_sock.h common/TokenIterator.h
+srv_sock.o: common/srv_sock.cpp config.h common/srv_sock.h common/base_sock.h
+http_srv.o: common/http_srv.cpp config.h common/http_srv.h common/thread.h common/srv_sock.h common/base_sock.h
+thread.o: common/thread.cpp config.h common/thread.h
+resources.o: resources.rc common/manifest.xml
+
+$(PROGRAM): $(OBJS)
+	$(CXX) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+	$(STRIP) $(PROGRAM)
+
+clean:
+	rm -f *.o $(PROGRAM)
+
+distclean: clean
+	rm -f Makefile config.status config.log config.h
