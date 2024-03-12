@@ -3,7 +3,6 @@
 #endif
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include "main.h"
 #ifndef MINGW
 #include "app.xpm"
@@ -163,10 +162,9 @@ MainDialog::MainDialog() : myDialog()
       wxBoxSizer *block = new wxStaticBoxSizer(wxVERTICAL, this, "Control");
       wxBoxSizer *row = new wxBoxSizer(wxHORIZONTAL);
       CreateButton(row, wxTOP | wxLEFT | wxBOTTOM, cpad, "Start", ID_Start);
-      wxButton* stop = CreateButton(row, wxALL, cpad, "Stop", ID_Stop);
+      CreateButton(row, wxALL, cpad, "Stop", ID_Stop)->Enable(false);
       block->Add(row);
       blocks->Add(block, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, cpad);
-      stop->Enable(false);
    }
    {
       wxBoxSizer *row = new wxBoxSizer(wxHORIZONTAL);
