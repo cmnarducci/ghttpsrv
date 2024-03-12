@@ -27,7 +27,7 @@ Authentication methods supported are basic (user and password) and with certific
 
 Special urls:
 * `/user` to show current authenticated user
-* `/send` to upload a file to server (a folder "uploads" will be created in the root direcetory)
+* `/send` to upload a file to server (a folder "uploads" will be created in the root directory)
 
 ## Version History
 
