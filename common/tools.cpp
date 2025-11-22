@@ -11,7 +11,6 @@
 #ifdef SOLARIS
 #include <sys/filio.h>
 #endif
-#include "TokenIterator.h"
 #include "tools.h"
 
 #if defined(HAVE_SSL) && OPENSSL_VERSION_NUMBER >= 0x10100000
@@ -216,6 +215,18 @@ string Tools::NetmaskToPrefix(const string& netmask)
    ostringstream oss;
    oss << bits;
    return oss.str();
+}
+
+bool Tools::IsInSubnet(const string& host, const string& net, const string& prefix)
+{
+   uint32_t ip = Tools::StringToIPv4(host);
+   uint32_t first = Tools::StringToIPv4(net);
+   istringstream iss(prefix);
+   uint32_t prefix_num;
+   iss >> prefix_num;
+   uint32_t hosts = 1 << (32 - prefix_num);
+   uint32_t last = first + hosts - 1;
+   return (ip >= first && ip <= last);
 }
 
 string Tools::hexdump(const uint8_t *buf, int len, bool upper, bool format, bool space)

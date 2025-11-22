@@ -28,8 +28,8 @@ wxBITMAP_STD_COLOURS    BITMAP "wx/msw/colours.bmp"
 1 24 "common/manifest.xml"
 
 1 VERSIONINFO
-FILEVERSION     3,0,0,0
-PRODUCTVERSION  3,0,0,0
+FILEVERSION     3,1,0,0
+PRODUCTVERSION  3,1,0,0
 BEGIN
   BLOCK "StringFileInfo"
   BEGIN
@@ -37,12 +37,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Italtel"
       VALUE "FileDescription", "Light HTTP/HTTPS Server"
-      VALUE "FileVersion", "3.0.0"
+      VALUE "FileVersion", "3.1.0"
       VALUE "InternalName", "ghttpsrv"
       VALUE "LegalCopyright", "Cesare Narducci"
       VALUE "OriginalFilename", "ghttpsrv.exe"
       VALUE "ProductName", "HTTP Server"
-      VALUE "ProductVersion", "3.0.0"
+      VALUE "ProductVersion", "3.1.0"
     END
   END
   BLOCK "VarFileInfo"

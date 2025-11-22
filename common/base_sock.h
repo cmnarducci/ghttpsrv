@@ -5,9 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
+#include <cstdint>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -21,6 +19,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <poll.h>
 #include <sys/ioctl.h>
@@ -31,6 +30,7 @@
 #endif
 #ifdef HAVE_SSL
 #include <openssl/ssl.h>
+#include <openssl/x509v3.h>
 #ifdef HAVE_PTHREAD
 struct CRYPTO_dynlock_value { pthread_rwlock_t rwlock; };
 #endif
@@ -50,6 +50,8 @@ struct CRYPTO_dynlock_value { pthread_rwlock_t rwlock; };
 #define __EINTR          WSAEINTR
 #define __EAGAIN         WSAEWOULDBLOCK
 #define __EINVAL         WSAEINVAL
+#define __ECONNREFUSED   WSAECONNREFUSED
+#define __ENETUNREACH    WSAENETUNREACH
 #else
 #define __lasterror      errno
 #define __seterror(x)    errno = x
@@ -68,6 +70,8 @@ struct CRYPTO_dynlock_value { pthread_rwlock_t rwlock; };
 #define __EINTR          EINTR
 #define __EAGAIN         EAGAIN
 #define __EINVAL         EINVAL
+#define __ECONNREFUSED   ECONNREFUSED
+#define __ENETUNREACH    ENETUNREACH
 #endif
 
 class BaseSock
@@ -117,15 +121,17 @@ public:
    std::string GetPeerCertificateCN();
    std::string GetPeerCertificateO();
    std::string GetPeerCertificateOU();
+   std::string GetPeerCertificateLocality();
    std::string GetPeerCertificateEmail();
    std::string GetPeerCertificateExpiry();
    std::string GetPeerCertificateIssuer();
+   std::vector<std::string> GetPeerCertificateSAN();
    std::string GetSSLVersion();
    void SetSNI(const std::string& sni) { _sni = sni; };
 #endif
    static std::string GetHostname();
    static int GetLocalAddresses(std::map<std::string,std::vector<std::string> >& ips);
-   static uint32_t GetIPv4(const std::string& host);
+   static uint32_t GetIPv4(const std::string& host, bool to_host = false);
 
 protected:
    enum DataAction { DATA_READ, DATA_WRITE };

@@ -33,7 +33,7 @@ server.o: server.cpp server.h config.h common/http_srv.h common/thread.h common/
 
 tools.o: common/tools.cpp common/tools.h
 wxhlp.o: common/wxhlp.cpp common/wxhlp.h
-base_sock.o: common/base_sock.cpp config.h common/base_sock.h common/TokenIterator.h
+base_sock.o: common/base_sock.cpp config.h common/base_sock.h
 srv_sock.o: common/srv_sock.cpp config.h common/srv_sock.h common/base_sock.h
 http_srv.o: common/http_srv.cpp config.h common/http_srv.h common/thread.h common/srv_sock.h common/base_sock.h
 thread.o: common/thread.cpp config.h common/thread.h

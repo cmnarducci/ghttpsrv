@@ -9,12 +9,12 @@
 #include <sstream>
 #include <fstream>
 #include <iomanip>
-#include "TokenIterator.h"
 #include "tools.h"
 #include "http_srv.h"
 
-#pragma GCC diagnostic push
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic ignored "-Wunused-result"
+#endif
 
 using namespace std;
 
@@ -43,6 +43,7 @@ const HttpSrv::HttpResponse::mime_t HttpSrv::HttpResponse::_mime_types[] =
    { "cer", "text/plain" },
    { "cfg", "text/plain" },
    { "class", "application/java-byte-code" },
+   { "cmake", "text/plain" },
    { "com", "application/octet-stream" },
    { "conf", "text/plain" },
    { "cpio", "application/x-cpio" },
@@ -81,16 +82,19 @@ const HttpSrv::HttpResponse::mime_t HttpSrv::HttpResponse::_mime_types[] =
    { "htm", "text/html" },
    { "html", "text/html" },
    { "ico", "image/x-icon" },
+   { "icns", "application/octet-stream" },
    { "img", "application/octet-stream" },
    { "image", "application/octet-stream" },
    { "in", "text/plain" },
    { "inf", "application/inf" },
    { "ini", "text/plain" },
    { "iso", "application/octet-stream" },
+   { "j2", "text/plain" },
    { "java", "text/plain" },
    { "jpeg", "image/jpeg" },
    { "jpg", "image/jpeg" },
    { "js", "application/javascript" },
+   { "json", "application/json" },
    { "key", "text/plain" },
    { "lha", "application/lha" },
    { "list", "text/plain" },
@@ -104,6 +108,7 @@ const HttpSrv::HttpResponse::mime_t HttpSrv::HttpResponse::_mime_types[] =
    { "m2v", "video/mpeg" },
    { "m3u", "audio/x-mpequrl" },
    { "m4", "text/plain" },
+   { "make", "text/plain" },
    { "md", "text/markdown" },
    { "mht", "message/rfc822" },
    { "mhtml", "message/rfc822" },
@@ -314,30 +319,7 @@ int HttpSrv::GetErrorNumber()
 
 string HttpSrv::GetErrorMessage()
 {
-   string errmsg;
-#ifdef MINGW
-   char msg[1024];
-   LPTSTR errTxt = 0;
-   if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                     0, _last_errno, 0, (LPTSTR)&errTxt, sizeof(msg) - 1, 0))
-   {
-#ifdef UNICODE
-         errmsg = Tools::Unicode2Ascii((uint8_t *)errTxt, wcslen(errTxt));
-#else
-         errmsg = errTxt;
-#endif
-         LocalFree(errTxt);
-         if (errmsg.at(errmsg.length()-1) == '\n')
-            errmsg = errmsg.substr(0, errmsg.length()-1);
-   }
-   else
-   {
-      errmsg = "No Error Description";
-   }
-#else
-   errmsg = strerror(_last_errno);
-#endif
-   return errmsg;
+   return Tools::GetErrorMessage(_last_errno);
 }
 
 void HttpSrv::AddText(const string& page, page_handler_t proc, bool keepalive)
@@ -500,7 +482,7 @@ void HttpSrv::HttpResponse::Run()
       if (status == REQUEST_DONE_CLOSE || (status == REQUEST_OK && !ProcessRequest()))
          break;
    }
-   usleep(10000);
+   Tools::Sleepms(10);
    _conn->CloseConnection();
 }
 
@@ -528,10 +510,13 @@ void HttpSrv::HttpResponse::CreateHeader()
    _response_header.clear();
    _response_status = "HTTP/1.1 200 OK";
    time_t secs = time(0);
-   StartCriticalSection();
-   struct tm *tv = gmtime(&secs);
-   string date = AscTime(tv);
-   EndCriticalSection();
+   struct tm tv;
+#ifdef MINGW
+   gmtime_s(&tv, &secs);
+#else
+   gmtime_r(&secs, &tv);
+#endif
+   string date = AscTime(&tv);
    //_response_header.push_back(response_header_entry_t("Server", "HttpSrv"));
    _response_header.push_back(response_header_entry_t("Date", date));
    _response_header.push_back(response_header_entry_t("Connection", "keep-alive"));
@@ -693,7 +678,7 @@ void HttpSrv::HttpResponse::WriteBinary(const uint8_t *data, int len, bool chunk
 long long HttpSrv::HttpResponse::GetFileOffset()
 {
    long long offset = 0;
-   
+
    string range;
    GetRequestHeader("range", &range, true);
    if (range.substr(0, 6) == "bytes=" && range.at(range.length()-1) == '-')
@@ -717,10 +702,13 @@ bool HttpSrv::HttpResponse::WriteFile(const string& filename, bool chunked, bool
    if (stat(filename.c_str(), &attrib) == -1)
       return false;
 #endif
-   StartCriticalSection();
-   struct tm *tv = gmtime(&(attrib.st_mtime));
-   string date = AscTime(tv);
-   EndCriticalSection();
+   struct tm tv;
+#ifdef MINGW
+   gmtime_s(&tv, &(attrib.st_mtime));
+#else
+   gmtime_r(&(attrib.st_mtime), &tv);
+#endif
+   string date = AscTime(&tv);
    string cached_date;
    if (GetRequestHeader("If-Modified-Since", &cached_date) && cached_date == date)
    {
@@ -989,7 +977,7 @@ bool HttpSrv::HttpResponse::SaveUpload(const string& content_type, int content_l
       to_read -= bytes;
    }
    _request_header["x-httpsrv-tmpfile"] = tmpfile;
-   _request_header["x-httpsrv-filename"] = fname;
+   _request_header["x-httpsrv-filename"] = fname.substr(fname.find_last_of("/\\") + 1);
    _conn->SetTimeOut(to);
    return rc;
 }
@@ -1140,8 +1128,7 @@ HttpSrv::HttpResponse::RequestStatus HttpSrv::HttpResponse::ReadRequest()
    return REQUEST_OK;
 }
 
-void HttpSrv::RequestReceived(const string& from, const string& method, string& page,
-                              const args_t& args, header_t& header, response_t& response)
+void HttpSrv::RequestReceived(const string&, const string&, string&, const args_t&, header_t&, response_t&)
 {
 }
 
@@ -1240,5 +1227,3 @@ bool HttpSrv::HttpResponse::ProcessRequest()
       return WriteError(response.status_code, response.content);
    return it->second.keepalive;
 }
-
-#pragma GCC diagnostic pop

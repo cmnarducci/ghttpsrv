@@ -28,7 +28,7 @@ class myDialog: public wxDialog
 {
 public:
    myDialog();
-   bool IsDarkMode() { return _is_dark; };
+   bool IsDarkMode();
 
 protected:
    virtual void OnClose(wxCloseEvent& event);
@@ -38,8 +38,6 @@ protected:
    void BusyStart();
    void BusyEnd();
    wxSize ButtonSize();
-   void EnableDarkMode(bool force = false);
-   void SetDarkColors(wxWindow *wnd, bool main_dlg = false);
    wxTextCtrl *CreateTextInput(wxBoxSizer *row, wxSize size, int flag, int pad, const wxString& label = wxT(""),
                                bool expand = false, bool password = false, const wxString& defVal = wxT(""),
                                bool numeric = false, int min = 1, int max = 65535);
@@ -57,6 +55,5 @@ protected:
 private:
    wxBusyInfo *_info_box;
    wxWindowDisabler *_disable_all;
-   bool _is_dark;
 };
 #endif

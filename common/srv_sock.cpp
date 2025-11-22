@@ -8,10 +8,6 @@
 #endif
 #include "srv_sock.h"
 
-#if defined(HAVE_SSL) && OPENSSL_VERSION_NUMBER >= 0x10100000
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-
 uint8_t const SrvSock::_dhparam[] =
 {
    0x30, 0x82, 0x01, 0x08, 0x02, 0x82, 0x01, 0x01, 0x00, 0xfb, 0x29, 0x1a,

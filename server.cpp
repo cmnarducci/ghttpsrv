@@ -43,7 +43,7 @@ void Server::Setup()
 }
 
 void Server::RequestReceived(const string& from, const string& method, string& page,
-                             const args_t& args, header_t& header, response_t& response)
+                             const args_t& /*args*/, header_t& header, response_t& response)
 {
    if (page != "/browse")
       Log(LOG_INFO, "From %s: %s %s", from.c_str(), method.c_str(), page.c_str());
@@ -77,7 +77,7 @@ void Server::RequestReceived(const string& from, const string& method, string& p
    }
 }
 
-void Server::BrowsePage(args_t& args, header_t& header, response_t& response)
+void Server::BrowsePage(args_t& args, header_t& /*header*/, response_t& response)
 {
    struct stat info;
    DIR *dir = 0;
@@ -217,7 +217,7 @@ string Server::CreateAnchors(const string& path)
    return rc;
 }
 
-void Server::AboutPage(args_t& args, header_t& header, response_t& response)
+void Server::AboutPage(args_t& /*args*/, header_t& /*header*/, response_t& response)
 {
    response.content = "<html><head><title>HTTP Server</title>"
                       "<style>body { font-family: Century Gothic, sans-serif; }</style>"
@@ -228,7 +228,7 @@ void Server::AboutPage(args_t& args, header_t& header, response_t& response)
    response.content += " Server *</h2></body></html>";
 }
 
-void Server::UserPage(args_t& args, header_t& header, response_t& response)
+void Server::UserPage(args_t& /*args*/, header_t& header, response_t& response)
 {
    string user = header["x-httpsrv-cert-cn"];
    string email = header["x-httpsrv-cert-email"];
@@ -255,7 +255,7 @@ void Server::UserPage(args_t& args, header_t& header, response_t& response)
                       "<body><h2>* you are " + user + " *</h2></body></html>";
 }
 
-void Server::FormPage(args_t& args, header_t& header, response_t& response)
+void Server::FormPage(args_t& /*args*/, header_t& /*header*/, response_t& response)
 {
    response.content =
    "<html>\n"
@@ -270,7 +270,7 @@ void Server::FormPage(args_t& args, header_t& header, response_t& response)
    "</html>\n";
 }
 
-void Server::UploadPage(args_t& args, header_t& header, response_t& response)
+void Server::UploadPage(args_t& /*args*/, header_t& header, response_t& response)
 {
    string fname = header["x-httpsrv-filename"];
    string tname = header["x-httpsrv-tmpfile"];
@@ -302,11 +302,16 @@ void Server::UploadPage(args_t& args, header_t& header, response_t& response)
 string Server::Now()
 {
    time_t now = time(0);
-   struct tm *datetime = localtime(&now);
+   struct tm datetime;
+#ifdef MINGW
+   localtime_s(&datetime, &now);
+#else
+   localtime_r(&now, &datetime);
+#endif
    ostringstream oss;
    oss << setfill('0');
-   oss << (datetime->tm_year + 1900) << "-" << setw(2) << (datetime->tm_mon + 1) << "-" << setw(2) << datetime->tm_mday;
-   oss << " " << setw(2) << datetime->tm_hour << ":" << setw(2) << datetime->tm_min << ":" << setw(2) << datetime->tm_sec;
+   oss << (datetime.tm_year + 1900) << "-" << setw(2) << (datetime.tm_mon + 1) << "-" << setw(2) << datetime.tm_mday;
+   oss << " " << setw(2) << datetime.tm_hour << ":" << setw(2) << datetime.tm_min << ":" << setw(2) << datetime.tm_sec;
    return oss.str();
 }
 

@@ -14,6 +14,9 @@ wxIMPLEMENT_APP(HttpSrvApp);
 
 bool HttpSrvApp::OnInit()
 {
+#if defined(MINGW) && ((wxMINOR_VERSION >= 3 && wxMAJOR_VERSION == 3) || wxMAJOR_VERSION > 3)
+   SetAppearance(Appearance::System);
+#endif
    MainFrame *frame = new MainFrame("HTTP/HTTPS Server");
    MainDialog *dlg = new MainDialog();
    frame->Show(false);
@@ -48,7 +51,7 @@ void MainFrame::OnExit(wxCommandEvent& event)
 
 void MainFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
 {
-   wxString version = "Version 3.0.0";
+   wxString version = "Version 3.1.0";
 #ifdef HAVE_SSL
    wxMessageBox(version, "HTTP/HTTPS Server", wxOK | wxICON_INFORMATION);
 #else
@@ -72,7 +75,7 @@ wxBEGIN_EVENT_TABLE(MainDialog, wxDialog)
    EVT_THREAD(wxID_ANY, MainDialog::OnLogUpdate)
 wxEND_EVENT_TABLE()
 
-void MainDialog::OnClose(wxCloseEvent& event)
+void MainDialog::OnClose(wxCloseEvent& WXUNUSED(event))
 {
    if (_httpsrv.IsRunning())
    {
@@ -85,13 +88,8 @@ void MainDialog::OnClose(wxCloseEvent& event)
    exit(0);
 }
 
-MainDialog::MainDialog() : myDialog()
+MainDialog::MainDialog() : myDialog(), cpad(10)
 {
-#if defined(MINGW) && wxMINOR_VERSION >= 1
-   cpad = FromDIP(10);
-#else
-   cpad = 10;
-#endif
 #ifdef __WXMAC__
    const int fs = 10;
 #else
@@ -103,14 +101,14 @@ MainDialog::MainDialog() : myDialog()
    wxSizerFlags::DisableConsistencyChecks();
 #endif
 #ifdef HAVE_SSL
-   wxString title = "HTTP/HTTPS Server v3.0.0";
+   wxString title = "HTTP/HTTPS Server v3.1.0";
 #else
-   wxString title = "HTTP Server v3.0.0";
+   wxString title = "HTTP Server v3.1.0";
 #endif
    Create(0, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
           wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMINIMIZE_BOX | wxMAXIMIZE_BOX);
 
-   // SetTransparent(240);
+   SetTransparent(252);
    wxBoxSizer *blocks = new wxBoxSizer(wxVERTICAL);
    {
       wxBoxSizer *block = new wxStaticBoxSizer(wxVERTICAL, this, "Server");
@@ -126,10 +124,11 @@ MainDialog::MainDialog() : myDialog()
       }
       _bind_ip = CreateChoice(row1, wxLEFT | wxTOP, cpad, "Bind to IP", ips);
 #if defined(MINGW) || defined(MACOS)
-      _port = CreateNumericInput(row1, wxSize(80, -1), wxLEFT | wxRIGHT | wxTOP, cpad, "Port", 80, 1, 65535);
+      const int nw = 80;
 #else
-      _port = CreateTextInput(row1, wxSize(80, -1), wxLEFT | wxRIGHT | wxTOP, cpad, "Port", false, false, "80", true);
+      const int nw = 140;
 #endif
+      _port = CreateNumericInput(row1, wxSize(nw, -1), wxLEFT | wxRIGHT | wxTOP, cpad, "Port", 80, 1, 65535);
       _ssl = CreateCheckBox(row1, wxLEFT | wxTOP, cpad, " Enable SSL", ID_SSL, true);
       _cert_pass = CreateTextInput(row1, wxSize(120, -1), wxLEFT | wxTOP | wxRIGHT, cpad, "PK Passphrase", false, true, "");
       wxBoxSizer *row2 = new wxBoxSizer(wxHORIZONTAL);
@@ -168,15 +167,15 @@ MainDialog::MainDialog() : myDialog()
    }
    {
       wxBoxSizer *row = new wxBoxSizer(wxHORIZONTAL);
-#if defined(MACOS)
-      _logs = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(610, 210), wxTE_MULTILINE);
-#elif defined(MINGW) && wxMINOR_VERSION >= 1
+#if defined(MINGW) && ((wxMINOR_VERSION >= 1 && wxMAJOR_VERSION == 3) || wxMAJOR_VERSION > 3)
       _logs = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, GetParent()->FromDIP(wxSize(610, 210)),
                              wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
 #else
       _logs = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(610, 210), wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2);
 #endif
       _logs->SetFont(wxFont(wxFontInfo(fs).FaceName("Courier New")));
+      if (((MainDialog *)GetParent())->IsDarkMode())
+         _logs->SetForegroundColour(wxColour(220, 220, 220));
       row->Add(_logs, 1, wxEXPAND);
       blocks->Add(row, 1, wxEXPAND | wxALL, 10);
       _httpsrv.SetLogCtrl(_logs);
@@ -227,41 +226,37 @@ void MainDialog::CheckEnable()
    FindWindowById(ID_BrowseCertificate, this)->Enable(ssl);
 }
 
-void MainDialog::OnClick(wxCommandEvent& event)
+void MainDialog::OnClick(wxCommandEvent& WXUNUSED(event))
 {
    CheckEnable();
 }
 
-void MainDialog::OnBrowseRootFolder(wxCommandEvent& event)
+void MainDialog::OnBrowseRootFolder(wxCommandEvent& WXUNUSED(event))
 {
    wxString path = BrowseSelectFolder();
    if (path.length() > 0)
       _root_dir->SetValue(path);
 }
 
-void MainDialog::OnBrowseCaFile(wxCommandEvent& event)
+void MainDialog::OnBrowseCaFile(wxCommandEvent& WXUNUSED(event))
 {
    wxString path = BrowseSelectFile();
    if (path.length() > 0)
       _ca_file->SetValue(path);
 }
 
-void MainDialog::OnBrowseCertFile(wxCommandEvent& event)
+void MainDialog::OnBrowseCertFile(wxCommandEvent& WXUNUSED(event))
 {
    wxString path = BrowseSelectFile();
    if (path.length() > 0)
       _cert_file->SetValue(path);
 }
 
-void MainDialog::OnStart(wxCommandEvent& event)
+void MainDialog::OnStart(wxCommandEvent& WXUNUSED(event))
 {
-#if defined(MINGW) || defined(MACOS)
    ostringstream svc;
    svc << _port->GetValue();
    string service(svc.str());
-#else
-   string service(_port->GetValue().c_str());
-#endif
    bool auth = _auth->IsChecked();
    bool basic = _basic_auth->GetValue();
    string proto = (_ssl->IsChecked()) ? "HTTPS" : "HTTP";
@@ -281,8 +276,7 @@ void MainDialog::OnStart(wxCommandEvent& event)
    _httpsrv.SetServerPort(service);
 #ifdef HAVE_SSL
    _httpsrv.SetSSL(false);
-   if (cert_file.length() > 0)
-      _httpsrv.UseCertificate(cert_file, cert_file, pk_pass);
+   _httpsrv.UseCertificate(cert_file, cert_file, pk_pass);
    if (_ssl->IsChecked() && auth && !basic && ca_file.length() == 0)
    {
       ErrorMessage("CA file not specified");
@@ -320,7 +314,7 @@ void MainDialog::OnStart(wxCommandEvent& event)
    }
 }
 
-void MainDialog::OnStop(wxCommandEvent& event)
+void MainDialog::OnStop(wxCommandEvent& WXUNUSED(event))
 {
    _httpsrv.End();
    _httpsrv.Wait();

@@ -62,11 +62,7 @@ private:
    int cpad;
    wxChoice *_bind_ip;
    wxTextCtrl *_root_dir;
-#if defined(MINGW) || defined(MACOS)
    wxSpinCtrl *_port;
-#else
-   wxTextCtrl *_port;
-#endif
    wxCheckBox *_ssl, *_auth;
    wxRadioButton *_basic_auth, *_cert_auth;
    wxTextCtrl *_username, *_password;

@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 23, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "debug-mingw",
+      "displayName": "Debug Build with MinGW64 Toolchain",
+      "binaryDir": "build",
+      "toolchainFile": "common/cmake/toolchain-mingw64.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release-mingw",
+      "displayName": "Release Build with MinGW64 Toolchain",
+      "binaryDir": "build",
+      "toolchainFile": "common/cmake/toolchain-mingw64.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ]
+}

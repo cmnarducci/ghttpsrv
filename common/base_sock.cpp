@@ -11,13 +11,22 @@
 #include "tools.h"
 #include "base_sock.h"
 
-#if defined(HAVE_SSL) && OPENSSL_VERSION_NUMBER >= 0x10100000
+#ifdef HAVE_SSL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#else
+#define ASN1_STRING_get0_data ASN1_STRING_data
+#ifndef sk_GENERAL_NAME_num
+#define sk_GENERAL_NAME_num(sk) sk_num((const _STACK*)(sk))
 #endif
-
-#if defined (HAVE_SSL) && defined(HAVE_PTHREAD)
+#ifndef sk_GENERAL_NAME_value
+#define sk_GENERAL_NAME_value(sk, i) (GENERAL_NAME*)sk_value((const _STACK*)(sk), (i))
+#endif
+#endif
+#ifdef HAVE_PTHREAD
 pthread_rwlock_t *BaseSock::_locks = 0;
 #endif
+#endif // HAVE_SSL
 
 #ifdef HAVE_SSL
 uint8_t BaseSock::_pk_der[] =
@@ -251,7 +260,7 @@ int BaseSock::BytesAvailable()
    {
       if (time(0) > started + _TimeOut)
          break;
-      usleep(200000);
+      Tools::Sleepms(200);
       ioctlsocket(_sock, FIONREAD, &readable);
    }
    return (int)readable;
@@ -427,7 +436,7 @@ int BaseSock::ReadData(uint8_t *buf, int len, bool peek)
 
 int BaseSock::WriteData(const uint8_t *buf, int len)
 {
-   uint8_t chunk[1500];
+   const int max_bytes = 1460;
    int chunk_size;
    int to_write = len;
    int bytes;
@@ -435,9 +444,8 @@ int BaseSock::WriteData(const uint8_t *buf, int len)
 
    while (to_write > 0)
    {
-      chunk_size = (to_write > (int)sizeof(chunk)) ? (int)sizeof(chunk) : to_write;
-      memcpy(chunk, &buf[tot_bytes], chunk_size);
-      if ((bytes = ExchangeData(DATA_WRITE, chunk, chunk_size)) > 0)
+      chunk_size = (to_write > max_bytes) ? max_bytes : to_write;
+      if ((bytes = ExchangeData(DATA_WRITE, const_cast<uint8_t *>(buf + tot_bytes), chunk_size)) > 0)
       {
          tot_bytes += bytes;
          to_write -= bytes;
@@ -450,18 +458,14 @@ int BaseSock::WriteData(const uint8_t *buf, int len)
 
 int BaseSock::ReadDataExact(uint8_t *buf, int len)
 {
-   uint8_t chunk[1500];
-   int chunk_size;
    int to_read = len;
    int bytes;
    int tot_bytes = 0;
 
    while (to_read > 0)
    {
-      chunk_size = (to_read > (int)sizeof(chunk)) ? (int)sizeof(chunk) : to_read;
-      if ((bytes = ReadData(chunk, chunk_size)) > 0)
+      if ((bytes = ReadData(buf + tot_bytes, to_read)) > 0)
       {
-         memcpy(&buf[tot_bytes], chunk, bytes);
          tot_bytes += bytes;
          to_read -= bytes;
       }
@@ -542,7 +546,7 @@ string BaseSock::GetPeerCertificateCommonName()
    X509 *cert;
    if (_ssl && (cert = SSL_get_peer_certificate(_ssl)) != 0)
    {
-      X509_NAME* sname = cert ? X509_get_subject_name(cert) : 0;
+      X509_NAME* sname = X509_get_subject_name(cert);
       char buff[512];
       if (sname && X509_NAME_get_text_by_NID(sname, NID_commonName, buff, sizeof(buff)) >= 0)
          subject = string(buff);
@@ -562,7 +566,7 @@ string BaseSock::GetPeerCertificateOU()
    X509 *cert;
    if (_ssl && (cert = SSL_get_peer_certificate(_ssl)) != 0)
    {
-      X509_NAME* sname = cert ? X509_get_subject_name(cert) : 0;
+      X509_NAME* sname = X509_get_subject_name(cert);
       char buff[512];
       if (sname && X509_NAME_get_text_by_NID(sname, NID_organizationalUnitName, buff, sizeof(buff)) >= 0)
          subject = string(buff);
@@ -571,13 +575,28 @@ string BaseSock::GetPeerCertificateOU()
    return subject;
 }
 
+string BaseSock::GetPeerCertificateLocality()
+{
+   string locality;
+   X509 *cert;
+   if (_ssl && (cert = SSL_get_peer_certificate(_ssl)) != 0)
+   {
+      X509_NAME* sname = X509_get_subject_name(cert);
+      char buff[512];
+      if (sname && X509_NAME_get_text_by_NID(sname, NID_localityName, buff, sizeof(buff)) >= 0)
+         locality = string(buff);
+      X509_free(cert);
+   }
+   return locality;
+}
+
 string BaseSock::GetPeerCertificateO()
 {
    string subject;
    X509 *cert;
    if (_ssl && (cert = SSL_get_peer_certificate(_ssl)) != 0)
    {
-      X509_NAME* sname = cert ? X509_get_subject_name(cert) : 0;
+      X509_NAME* sname = X509_get_subject_name(cert);
       char buff[512];
       if (sname && X509_NAME_get_text_by_NID(sname, NID_organizationName, buff, sizeof(buff)) >= 0)
          subject = string(buff);
@@ -592,7 +611,7 @@ string BaseSock::GetPeerCertificateEmail()
    X509 *cert;
    if (_ssl && (cert = SSL_get_peer_certificate(_ssl)) != 0)
    {
-      X509_NAME* sname = cert ? X509_get_subject_name(cert) : 0;
+      X509_NAME* sname = X509_get_subject_name(cert);
       char buff[512];
       if (sname && X509_NAME_get_text_by_NID(sname, NID_pkcs9_emailAddress, buff, sizeof(buff)) >= 0)
          email = string(buff);
@@ -625,7 +644,7 @@ string BaseSock::GetPeerCertificateIssuer()
    X509 *cert;
    if (_ssl && (cert = SSL_get_peer_certificate(_ssl)) != 0)
    {
-      X509_NAME* iname = cert ? X509_get_issuer_name(cert) : 0;
+      X509_NAME* iname = X509_get_issuer_name(cert);
       char buff[512];
       if (iname && X509_NAME_get_text_by_NID(iname, NID_commonName, buff, sizeof(buff)) >= 0)
          issuer = string(buff);
@@ -634,7 +653,67 @@ string BaseSock::GetPeerCertificateIssuer()
    return issuer;
 }
 
-int BaseSock::ServerNameIndicationCB(SSL *ssl, int *ad, void *arg)
+vector<string> BaseSock::GetPeerCertificateSAN()
+{
+   vector<string> san_list;
+   X509 *cert;
+   if (!_ssl || (cert = SSL_get_peer_certificate(_ssl)) == 0)
+      return san_list;
+
+   STACK_OF(GENERAL_NAME) *san_names = (STACK_OF(GENERAL_NAME)*)X509_get_ext_d2i(cert, NID_subject_alt_name, 0, 0);
+   if (san_names)
+   {
+      int count = sk_GENERAL_NAME_num(san_names);
+      for (int i = 0; i < count; i++)
+      {
+         const GENERAL_NAME *gen_name = sk_GENERAL_NAME_value(san_names, i);
+         if (gen_name->type == GEN_DNS)
+         {
+            const char *dns_name = (const char*)ASN1_STRING_get0_data(gen_name->d.dNSName);
+            if (dns_name && ASN1_STRING_length(gen_name->d.dNSName) == (int)strlen(dns_name))
+               san_list.push_back(string("DNS:") + dns_name);
+         }
+         else if (gen_name->type == GEN_IPADD)
+         {
+            const unsigned char *ip = ASN1_STRING_get0_data(gen_name->d.iPAddress);
+            int ip_len = ASN1_STRING_length(gen_name->d.iPAddress);
+            char buf[INET6_ADDRSTRLEN] = { 0 };
+            if (ip_len == 4)
+               inet_ntop(AF_INET, ip, buf, sizeof(buf));
+            else if (ip_len == 16)
+               inet_ntop(AF_INET6, ip, buf, sizeof(buf));
+            if (buf[0] != '\0')
+               san_list.push_back(string("IP:") + buf);
+         }
+         else if (gen_name->type == GEN_EMAIL)
+         {
+            const char *email = (const char*)ASN1_STRING_get0_data(gen_name->d.rfc822Name);
+            if (email && ASN1_STRING_length(gen_name->d.rfc822Name) == (int)strlen(email))
+               san_list.push_back(string("EMAIL:") + email);
+         }
+         else if (gen_name->type == GEN_OTHERNAME)
+         {
+            OTHERNAME *on = gen_name->d.otherName;
+            if (on)
+            {
+               char oidbuf[128];
+               OBJ_obj2txt(oidbuf, sizeof(oidbuf), on->type_id, 1);
+               if (strcmp(oidbuf, "1.3.6.1.4.1.311.20.2.3") == 0 && on->value->type == V_ASN1_UTF8STRING)
+               {
+                  const char *upn = (const char*)ASN1_STRING_get0_data(on->value->value.utf8string);
+                  if (upn && ASN1_STRING_length(on->value->value.utf8string) == (int)strlen(upn))
+                     san_list.push_back(string("UPN:") + upn);
+               }
+            }
+         }
+      }
+      GENERAL_NAMES_free(san_names);
+   }
+   X509_free(cert);
+   return san_list;
+}
+
+int BaseSock::ServerNameIndicationCB(SSL *ssl, int *, void *arg)
 {
    BaseSock *bsock = (BaseSock *)arg;
    const char *sni = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
@@ -668,7 +747,7 @@ int BaseSock::CertVerifyCB(int preverify_ok, X509_STORE_CTX *x509_ctx)
    return preverify_ok;
 }
 
-int BaseSock::CertKeyPasswordCB(char *buf, int size, int rwflag, void *password)
+int BaseSock::CertKeyPasswordCB(char *buf, int size, int, void *password)
 {
    string *pwd = (string *)password;
    if (pwd->length() == 0)
@@ -711,7 +790,7 @@ bool BaseSock::StartSSL(bool use_cert, SSLMethod method)
 
 bool BaseSock::SetSSL(bool ssl, bool use_cert, SSLMethod method, const string& ca_file, const string& crl_file)
 {
-   bool rc = true;;
+   bool rc = true;
    if (ssl)
    {
       if ((method & _method_mask) == 0)
@@ -745,18 +824,18 @@ bool BaseSock::SetSSL(bool ssl, bool use_cert, SSLMethod method, const string& c
 #endif
       if ((_ctx = SSL_CTX_new(_method)) == 0)
          return false;
-      SSL_CTX_set_options(_ctx, SSL_OP_NO_SSLv2);
-#if OPENSSL_VERSION_NUMBER >= 0x10001000
-      const char *ciphers = "TLSv1.2+HIGH:TLSv1+HIGH:!SSLv2:!DSS:!PSK:!SRP:RC4+MEDIUM:!aNULL:@STRENGTH";
-#else
-      const char *ciphers = "TLSv1+HIGH:!SSLv2:!DSS:!PSK:!SRP:RC4+MEDIUM:!aNULL:@STRENGTH";
+      SSL_CTX_set_options(_ctx, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
+      SSL_CTX_set_min_proto_version(_ctx, TLS1_1_VERSION);
 #endif
-      SSL_CTX_set_cipher_list(_ctx, ciphers);
 #ifdef SSL_OP_NO_COMPRESSION
       SSL_CTX_set_options(_ctx, SSL_OP_NO_COMPRESSION);
 #endif
       if (method == DTLSv1 || method == DTLSv1_2 || method == DTLS)
          SSL_CTX_set_read_ahead(_ctx, 1);
+      EC_KEY *ec = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+      if (ec)
+         EC_KEY_free(ec);
       if (ca_file.length() > 0)
       {
          if ((rc = SSL_CTX_load_verify_locations(_ctx, ca_file.c_str(), 0)))
@@ -774,17 +853,45 @@ bool BaseSock::SetSSL(bool ssl, bool use_cert, SSLMethod method, const string& c
       }
       if (use_cert && rc)
       {
-         if (_cert_file.length() == 0)
+         if (_cert_file.empty())
          {
-            rc = SSL_CTX_use_RSAPrivateKey_ASN1(_ctx, _pk_der, sizeof(_pk_der)) == 1 &&
-                 SSL_CTX_use_certificate_ASN1(_ctx, sizeof(_cert_der), _cert_der) == 1;
+#if OPENSSL_VERSION_NUMBER >= 0x10001000
+            const uint8_t *p = _pk_der;
+            rc = false;
+            EVP_PKEY *pkey = d2i_AutoPrivateKey(0, &p, sizeof(_pk_der));
+            if (pkey)
+            {
+               rc = SSL_CTX_use_PrivateKey(_ctx, pkey) == 1;
+               EVP_PKEY_free(pkey);
+            }
+#else
+            rc = SSL_CTX_use_RSAPrivateKey_ASN1(_ctx, _pk_der, sizeof(_pk_der)) == 1;
+#endif
+            if (rc)
+               rc = SSL_CTX_use_certificate_ASN1(_ctx, sizeof(_cert_der), _cert_der) == 1;
          }
          else
          {
+#if OPENSSL_VERSION_NUMBER >= 0x10001000
+            rc = false;
+            FILE *f = fopen(_pk_file.c_str(), "r");
+            if (f)
+            {
+               EVP_PKEY *pkey = PEM_read_PrivateKey(f, 0, CertKeyPasswordCB, (void *)&_pk_pwd);
+               fclose(f);
+               if (pkey)
+               {
+                  rc = SSL_CTX_use_PrivateKey(_ctx, pkey) == 1;
+                  EVP_PKEY_free(pkey);
+               }
+            }
+#else
             SSL_CTX_set_default_passwd_cb_userdata(_ctx, (void *)&_pk_pwd);
             SSL_CTX_set_default_passwd_cb(_ctx, CertKeyPasswordCB);
-            rc = SSL_CTX_use_RSAPrivateKey_file(_ctx, _pk_file.c_str(), SSL_FILETYPE_PEM) == 1 &&
-                 SSL_CTX_use_certificate_chain_file(_ctx, _cert_file.c_str()) == 1;
+            rc = SSL_CTX_use_RSAPrivateKey_file(_ctx, _pk_file.c_str(), SSL_FILETYPE_PEM) == 1;
+#endif
+            if (rc)
+               rc = SSL_CTX_use_certificate_chain_file(_ctx, _cert_file.c_str()) == 1;
          }
       }
       SSL_CTX_set_tlsext_servername_callback(_ctx, ServerNameIndicationCB);
@@ -918,7 +1025,7 @@ int BaseSock::GetLocalAddresses(map<string,vector<string> >& ips)
    return (int)ips.size();
 }
 
-uint32_t BaseSock::GetIPv4(const string& host)
+uint32_t BaseSock::GetIPv4(const string& host, bool to_host)
 {
    uint32_t rc = 0;
    addrinfo *hostinfo;
@@ -933,7 +1040,7 @@ uint32_t BaseSock::GetIPv4(const string& host)
       rc = ((sockaddr_in *)(hostinfo->ai_addr))->sin_addr.s_addr;
       freeaddrinfo(hostinfo);
    }
-   return rc;
+   return (to_host) ? ntohl(rc) : rc;
 }
 
 void BaseSock::Setup()
