@@ -52,7 +52,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 if (CMAKE_SYSTEM_NAME STREQUAL "CYGWIN")
-   message(FATAL_ERROR "Cygwin is not supported, use -DCMAKE_TOOLCHAIN_FILE=../toolchain-mingw64.cmake")
+   message(FATAL_ERROR "Cygwin is not supported, use -DCMAKE_TOOLCHAIN_FILE=common/cmake/toolchain-mingw64.cmake")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
    target_compile_definitions(${PROJECT_NAME} PRIVATE MACOS)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Windows")
